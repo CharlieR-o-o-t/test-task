@@ -5,7 +5,7 @@ VERSION = "0.1.dev0"
 install_requires = [
     "BeautifulSoup>=3.2.1",
     "boto3>=1.4.4,<1.5.0",
-    "djangorestframework==3.4.7",
+    "djangorestframework==2.4.8",
     "mistune>0.7,<0.9",
     "python-dateutil>=2.0.0,<3.0.0",
     "PyJWT>=1.5.0,<1.6.0",
@@ -15,7 +15,6 @@ install_requires = [
     "cached-property",
     "phabricator>=0.6.0,<1.0",
     "sentry_plugins",
-    "sentry>=8.9.0"
 ]
 
 setup(name='sentryflo',
@@ -28,4 +27,9 @@ setup(name='sentryflo',
       #packages=find_packages("src"),
       packages=["sentryflo", "sentryflo.amazon_sns"],
       install_requires=install_requires,
+      entry_points={
+          'sentry.plugins': [
+              'sentry_sns = sentryflo.amazon_sns.plugin:AmazonSNSPlugin'
+          ]
+      },
       zip_safe=False)
