@@ -1,14 +1,13 @@
 from __future__ import absolute_import
 
 import logging
-
+import os
 import boto3
 import string
 
 from botocore.client import ClientError
 from sentry_plugins.base import CorePluginMixin
 from sentry.plugins.bases.data_forwarding import DataForwardingPlugin
-from sentry_plugins.utils import get_secret_field_config
 from sentry.utils import json, metrics
 from sentry.exceptions import PluginError
 
@@ -20,7 +19,6 @@ class AmazonSNSPlugin(CorePluginMixin, DataForwardingPlugin):
     slug = "amazon-sns"
     description = "Forward Sentry events to Amazon SNS (SMS messaging)"
     conf_key = "amazon-sns"
-    sms_type = 'Promotional'
 
     def validate_config(self, project, config, actor):
         if len(config['sender_name']) > 11:
@@ -60,25 +58,31 @@ class AmazonSNSPlugin(CorePluginMixin, DataForwardingPlugin):
                 "required": True,
             },
             {
+                "name": "region",
+                "label": "AWS aws_region",
+                "type": "text",
+                "placeholder": "eu-west-1",
+                "required": True,
+            },
+            {
                 "name": "sender_name",
                 "label": "Sender_name",
                 "type": "text",
                 "default": "SentrySNS",
                 "help": "Name of sender, length should be MAX 11 characters!",
             },
-            {
-                "name": "rate_limit",
-                "label": "Limit per minute",
-                "type": "number",
-                "default": 10,
-                "help": "SMS messages limit per minute",
-            },
         ]
 
     # Use get_rate_limit from parent class
     def get_rate_limit(self):
-        logger.info('sentryflo.amazon_sns.get_rate_limit_call')
-        return (self.get_option("rate_limit"), 1)
+        limit = os.environ.get('SNS_RATELIMIT', 10)
+        logger.info(
+            'sentryflo.amazon_sns.get_rate_limit_call',
+            extra={
+                "limit_per_minute": limit,
+            },
+        )
+        return (limit, 1)
 
     def forward_event(self, event, payload):
         logger.info(
@@ -88,12 +92,13 @@ class AmazonSNSPlugin(CorePluginMixin, DataForwardingPlugin):
             },
         )
 
-        secret_key_id = environ.get('SECRET_KEY_ID')
-        secret_key = environ.get('SECRET_KEY')
-        topic_arn = self.get_option("topic_arn")
-        sender_name = self.get_option("sender_name")
+        secret_key_id = os.environ.get('SNS_SECRET_KEY_ID')
+        secret_key = os.environ.get('SNS_SECRET_KEY')
+        topic_arn = self.get_option("topic_arn", event.project)
+        region = self.get_option("region", event.project)
+        sender_name = self.get_option("sender_name", event.project)
 
-        if not all((access_key, secret_key, region, sender_name)):
+        if not all((region, secret_key_id, secret_key, sender_name, topic_arn)):
             logger.error(
                 'sentryflo.amazon_sns.config_settings_failed',
                 extra={
@@ -102,9 +107,9 @@ class AmazonSNSPlugin(CorePluginMixin, DataForwardingPlugin):
             )
             return
 
-        message = json.dumps(payload)
-
-        if len(message) > 160:
+        ## Forward only message since it's not good approach to send all event via sms
+        ## SMS limited to 160 characters long
+        if len(payload['message']) > 160:
             logger.error(
                 'sentryflo.amazon_sns.message_too_long_for_sms',
                 extra={
@@ -113,24 +118,24 @@ class AmazonSNSPlugin(CorePluginMixin, DataForwardingPlugin):
                 },
             )
             return False
-        
 
         try:
             client = boto3.client(
                 service_name="sns",
                 aws_access_key_id=secret_key_id,
                 aws_secret_access_key=secret_key,
+                region_name=region,
             )
 
             client.set_sms_attributes(
                 attributes={
                         'DefaultSenderID': sender_name,
-                        'DefaultSMSType': sms_type
+                        'DefaultSMSType': 'Promotional'
                 }
             )
 
             client.publish(
-                    Message=json.dumps(message),
+                    Message=payload['message'],
                     TopicArn=topic_arn,
             )
         except ClientError as e:
@@ -154,7 +159,12 @@ class AmazonSNSPlugin(CorePluginMixin, DataForwardingPlugin):
 
                 return False
 
-
+        logger.info(
+            'sentryflo.amazon_sns.forward_event_success',
+            extra={
+                "project_id": event.project.id,
+            },
+        )
         return True
 
 
