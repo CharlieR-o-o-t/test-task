@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentry
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentry
+  template:
+    metadata:
+      labels:
+        app: sentry
+    spec:
+      containers:
+        - name: sentry
+          image: raskin88/sentrycustom:9.1.2_fixed
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 9000
+          envFrom:
+            - secretRef:
+                name: sentry-secret
+          env:
+            - name: SENTRY_REDIS_HOST
+              value: $(SENTRY_REDIS_SERVICE_HOST)
+            - name: SENTRY_REDIS_PORT
+              value: $(SENTRY_REDIS_SERVICE_PORT)
+            - name: SENTRY_POSTGRES_HOST
+              value: $(SENTRY_POSTGRES_SERVICE_HOST)
+            - name: SENTRY_POSTGRES_PORT
+              value: $(SENTRY_POSTGRES_SERVICE_PORT)
+      initContainers:
+        - name: init-db
+          image: raskin88/sentrycustom:9.1.2_fixed
+          command: ['/entrypoint.sh', 'upgrade', '--noinput']
+          #command: ['env']
+          envFrom:
+            - secretRef:
+                name: sentry-secret
+          env:
+            - name: SENTRY_REDIS_HOST
+              value: $(SENTRY_REDIS_SERVICE_HOST)
+            - name: SENTRY_REDIS_PORT
+              value: $(SENTRY_REDIS_SERVICE_PORT)
+            - name: SENTRY_POSTGRES_HOST
+              value: $(SENTRY_POSTGRES_SERVICE_HOST)
+            - name: SENTRY_POSTGRES_PORT
+              value: $(SENTRY_POSTGRES_SERVICE_PORT)
+
+        - name: create-user
+          image: raskin88/sentrycustom:9.1.2_fixed
+          command: ["python"]
+          args: ["/bootstrap.py"]
+          envFrom:
+            - secretRef:
+                name: sentry-secret
+          env:
+            - name: SENTRY_REDIS_HOST
+              value: $(SENTRY_REDIS_SERVICE_HOST)
+            - name: SENTRY_REDIS_PORT
+              value: $(SENTRY_REDIS_SERVICE_PORT)
+            - name: SENTRY_POSTGRES_HOST
+              value: $(SENTRY_POSTGRES_SERVICE_HOST)
+            - name: SENTRY_POSTGRES_PORT
+              value: $(SENTRY_POSTGRES_SERVICE_PORT)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentry-cron
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentry-cron
+  template:
+    metadata:
+      labels:
+        app: sentry-cron
+    spec:
+      containers:
+        - name: sentry-cron
+          image: raskin88/sentrycustom:9.1.2_fixed
+          command: ['sentry', 'run', 'cron']
+          imagePullPolicy: "IfNotPresent"
+          envFrom:
+            - secretRef:
+                name: sentry-secret
+          env:
+            - name: SENTRY_REDIS_HOST
+              value: $(SENTRY_REDIS_SERVICE_HOST)
+            - name: SENTRY_REDIS_PORT
+              value: $(SENTRY_REDIS_SERVICE_PORT)
+            - name: SENTRY_POSTGRES_HOST
+              value: $(SENTRY_POSTGRES_SERVICE_HOST)
+            - name: SENTRY_POSTGRES_PORT
+              value: $(SENTRY_POSTGRES_SERVICE_PORT)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentry-worker
+spec: 
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentry-worker
+  template:
+    metadata:
+      labels:
+        app: sentry-worker
+    spec:
+      containers:
+        - name: sentry-worker
+          image: raskin88/sentrycustom:9.1.2_fixed
+          command: ['sentry', 'run', 'worker']
+          imagePullPolicy: "IfNotPresent"
+          envFrom:
+            - secretRef:
+                name: sentry-secret
+          env:
+            - name: SENTRY_REDIS_HOST
+              value: $(SENTRY_REDIS_SERVICE_HOST)
+            - name: SENTRY_REDIS_PORT
+              value: $(SENTRY_REDIS_SERVICE_PORT)
+            - name: SENTRY_POSTGRES_HOST
+              value: $(SENTRY_POSTGRES_SERVICE_HOST)
+            - name: SENTRY_POSTGRES_PORT
+              value: $(SENTRY_POSTGRES_SERVICE_PORT)
+            - name: C_FORCE_ROOT
+              value: "True"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sentry-web
+  labels:
+    app: sentry
+spec:
+  type: NodePort
+  ports:
+    - port: 9000
+  selector:
+   app: sentry

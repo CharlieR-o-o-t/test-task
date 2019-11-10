@@ -1,0 +1,17 @@
+secretGenerator:
+- name: sentry-secret
+  literals:
+  - SENTRY_SECRET_KEY='!n2l=(4g+@zz+4w5^we7b%=xd9ycp#ir9z^hr##)38pmh^9wb_'
+  - SENTRY_ADMIN_EMAIL=raskintech@gmail.com
+  - SENTRY_ADMIN_NAME=admin
+  - SENTRY_ADMIN_PASSWORD=secret
+  - POSTGRES_PASSWORD=secret
+  - POSTGRES_USER=sentry
+  - POSTGRES_DB=sentry
+  - SENTRY_DB_USER=sentry
+  - SENTRY_DB_NAME=sentry
+  - SENTRY_DB_PASSWORD=secret
+resources:
+- pgsql.yaml
+- redis.yaml
+- sentry.yaml
