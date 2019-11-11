@@ -51,7 +51,7 @@ spec:
         - name: create-user
           image: raskin88/sentrycustom:9.1.2_onbuild
           command: ["python"]
-          args: ["/bootstrap.py"]
+          args: ["/usr/src/sentry/bootstrap.py"]
           envFrom:
             - secretRef:
                 name: sentry-secret
