@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: sentry
-          image: raskin88/sentrycustom:9.1.2_fixed
+          image: raskin88/sentrycustom:9.1.2_onbuild
           imagePullPolicy: "IfNotPresent"
           ports:
             - containerPort: 9000
@@ -32,7 +32,7 @@ spec:
               value: $(SENTRY_POSTGRES_SERVICE_PORT)
       initContainers:
         - name: init-db
-          image: raskin88/sentrycustom:9.1.2_fixed
+          image: raskin88/sentrycustom:9.1.2_onbuild
           command: ['/entrypoint.sh', 'upgrade', '--noinput']
           #command: ['env']
           envFrom:
@@ -49,7 +49,7 @@ spec:
               value: $(SENTRY_POSTGRES_SERVICE_PORT)
 
         - name: create-user
-          image: raskin88/sentrycustom:9.1.2_fixed
+          image: raskin88/sentrycustom:9.1.2_onbuild
           command: ["python"]
           args: ["/bootstrap.py"]
           envFrom:
@@ -81,7 +81,7 @@ spec:
     spec:
       containers:
         - name: sentry-cron
-          image: raskin88/sentrycustom:9.1.2_fixed
+          image: raskin88/sentrycustom:9.1.2_onbuild
           command: ['sentry', 'run', 'cron']
           imagePullPolicy: "IfNotPresent"
           envFrom:
@@ -113,7 +113,7 @@ spec:
     spec:
       containers:
         - name: sentry-worker
-          image: raskin88/sentrycustom:9.1.2_fixed
+          image: raskin88/sentrycustom:9.1.2_onbuild
           command: ['sentry', 'run', 'worker']
           imagePullPolicy: "IfNotPresent"
           envFrom:
